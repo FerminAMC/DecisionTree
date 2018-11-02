@@ -1,195 +1,93 @@
-'''
-Example input:
-@relation weather.symbolic
-
-@attribute outlook {sunny, overcast, rainy}
-@attribute temperature {hot, mild, cool}
-@attribute humidity {high, normal}
-@attribute windy {TRUE, FALSE}
-@attribute play {yes, no}
-
-@data
-sunny,hot,high,FALSE,no
-sunny,hot,high,TRUE,no
-overcast,hot,high,FALSE,yes
-rainy,mild,high,FALSE,yes
-rainy,cool,normal,FALSE,yes
-rainy,cool,normal,TRUE,no
-overcast,cool,normal,TRUE,yes
-sunny,mild,high,FALSE,no
-sunny,cool,normal,FALSE,yes
-rainy,mild,normal,FALSE,yes
-sunny,mild,normal,TRUE,yes
-overcast,mild,high,TRUE,yes
-overcast,hot,normal,FALSE,yes
-rainy,mild,high,TRUE,no
-'''
-
 # A great source for understanding how to calculate the Entropy and
 # Information gained
 # https://www.saedsayad.com/decision_tree.htm
 import math
+import fileinput
+import re
 
-'''
-@attribute input must be parsed this way:
-name = "outlook"
-values = {'sunny': {}, 'overcast': 0, 'rainy': 0}
-if(!next_line contains '@attribute') answer = True
-position = number of @attribute
-
-@data input must be parsed this way:
-data_table = [
-    ["sunny","hot","high","FALSE","no"],
-    ["sunny","hot","high","TRUE","no"],
-    ["overcast","hot","high","FALSE","yes"],
-    ["rainy","mild","high","FALSE","yes"],
-    ["rainy","cool","normal","FALSE","yes"],
-    ["rainy","cool","normal","TRUE","no"],
-    ["overcast","cool","normal","TRUE","yes"],
-    ["sunny","mild","high","FALSE","no"],
-    ["sunny","cool","normal","FALSE","yes"],
-    ["rainy","mild","normal","FALSE","yes"],
-    ["sunny","mild","normal","TRUE","yes"],
-    ["overcast","mild","high","TRUE","yes"],
-    ["overcast","hot","normal","FALSE","yes"],
-    ["rainy","mild","high","TRUE","no"]
-]
-'''
 class Node():
     def __init__(self):
         self.name = ""
-        self.values = {}
-        self.children = {}
-        self.answer = False
+        self.attributes = []
         self.position = 0
 
-    def count_values(self, data_table, answer_node):
-        table_width = len(data_table[0])-1
-        if(self.answer == False): # Means we have a normal node
-            for i in self.values:
-                for j in answer_node.values:
-                    self.values[i].update({j:0})
-            for i in range(len(data_table)):
-                for j in range(len(data_table[i])):
-                    if(self.position == j):
-                        self.values[data_table[i][j]][data_table[i][table_width]] += 1
-        else: # We are working with the answer node
-            for i in self.values:
-                self.values[i] = 0
-            for i in range(len(data_table)):
-                self.values[data_table[i][table_width]] += 1
-        #print(self.name + ": " + str(self.values))
+def calc_entropy(nodes, data_table):
+    entropy = 0
+    answer_node = nodes[len(nodes)-1]
+    counter = {}
+    for attribute in answer_node.attributes:
+        counter[attribute] = 0
+    for i in range(len(data_table)):
+        counter[data_table[i][len(data_table[i])-1]] += 1
+    for attribute in counter:
+        if counter[attribute] > 0:
+            entropy -= (counter[attribute] / len(data_table)) * math.log((counter[attribute] / len(data_table)), 2)
+    return entropy
 
-    def calc_entropy(self):
-        if(self.answer == True):
-            entropy = 0
-            total = 0
-            for i in self.values:
-                total += self.values[i]
-            for i in self.values:
-                entropy -= (self.values[i]/total) * math.log((self.values[i]/total), 2)
-            return(entropy)
-        else:
-            total_entropy = 0
-            total = 0
-            for i in self.values:
-                for j in self.values[i]:
-                    total += self.values[i][j]
-            for i in self.values:
-                i_total = 0
-                probability = 0
-                entropy = 0
-                for j in self.values[i]:
-                    i_total += self.values[i][j]
-                for j in self.values[i]:
-                    probability = self.values[i][j]/i_total
-                    if(probability > 0):
-                        entropy -= probability * math.log(probability, 2)
-                total_entropy += (i_total/total)*entropy
-            return(total_entropy)
+def calc_info_gain(nodes, data_table, att, ent):
+    ifo_gain = 0
+    entropy = 0
+    for node in nodes:
+        for attribute in node.attributes:
+            if(node.name == att):
+                split = split_data(data_table, attribute, node.position)
+                entropy += (len(split) / len(data_table)) * calc_entropy(nodes, split)
+    info_gain = ent - entropy
+    return info_gain
 
-    def select_best(self, nodes):
-        best = None
-        info_gained = 0
-        answer_entropy = 0
+def split_data(data_table, attribute, position):
+    split_data = [row for row in data_table if attribute == row[position]]
+    #pp.pprint(split_data)
+    return split_data
+
+def id3(nodes, data_table, entropy, depth):
+    tabs = "  " * depth
+    if entropy == 0:
+        print(tabs + "ANSWER: "+ data_table[0][nodes[len(nodes)-1].position])
+    else:
+        info_gain = 0
         for node in nodes:
-            if(node.answer == True):
-                answer_entropy = node.calc_entropy()
-        for node in nodes:
-            if(info_gained < answer_entropy - node.calc_entropy()):
-                info_gained = answer_entropy - node.calc_entropy()
-                best = node
-        #print(best.name + ": " + str(best.values))
-        #print(info_gained)
-        return best
+            if(node != nodes[len(nodes)-1]):
+                aux = calc_info_gain(nodes, data_table, node.name, entropy)
+                if(aux > info_gain):
+                    info_gain = aux
+                    best = node
+        if(info_gain != 0):
+            for attribute in best.attributes:
+                print(tabs + best.name + ": " + attribute)
+                split = split_data(data_table, attribute, best.position)
+                recursive_entropy = calc_entropy(nodes, split)
+                if(len(split) > 0):
+                    id3(nodes, split, recursive_entropy, depth + 1)
 
-    def set_children(self):
-        for val in self.values:
-            self.children.update({val: Node()})
-
-    def split_data(self, data_table):
-        pass
-
-    def is_answer(self, data_table):
-        possible_answer = data_table[0][len(data_table-1)]
-        for i in range(len(data_table)):
-            if(possible_answer != data_table[i][len(data_table-1)]):
-                return False
-        print("ANSWER: " + possible_answer)
-        return True
-
-def id3(nodes, data_table):
-    pass
+def parse_node(string, nodes):
+    # Format the attributes to add it to the dictionary of attributes
+    string = string.split(' ')
+    name = string[0].replace(' ','')
+    node = Node()
+    if not nodes:
+        node.name = name
+        node.position = 0
+        for element in string[1:]:
+            node.attributes.append(element.replace(',','').replace(' ','').replace('}','').replace('{',''))
+    else:
+        position = nodes[len(nodes)-1].position + 1
+        node.name = name
+        node.position = position
+        for element in string[1:]:
+            node.attributes.append(element.replace(',','').replace(' ','').replace('}','').replace('{',''))
+    nodes.append(node)
 
 if __name__ == "__main__":
-    root = Node()
-    outlook = Node()
-    temp = Node()
-    humidity = Node()
-    windy = Node()
-    play = Node()
-    nodes = [outlook, temp, humidity, windy, play]
-    outlook.name = "outlook"
-    outlook.values = {'sunny': {}, 'overcast': {}, 'rainy': {}}
-    outlook.answer = False
-    outlook.position = 0
-    temp.name = "temperature"
-    temp.values = {'hot': {}, 'mild': {}, 'cool': {}}
-    temp.answer = False
-    temp.position = 1
-    humidity.name = "humidity"
-    humidity.values = {'high': {}, 'normal': {}}
-    humidity.answer = False
-    humidity.position = 2
-    windy.name = "windy"
-    windy.values = {'TRUE': {}, 'FALSE': {}}
-    windy.answer = False
-    windy.position = 3
-    play.name = "play"
-    play.values = {'yes': {}, 'no': {}}
-    play.answer = True
-    play.position = 4
-    data_table = [
-        ["sunny","hot","high","FALSE","no"],
-        ["sunny","hot","high","TRUE","no"],
-        ["overcast","hot","high","FALSE","yes"],
-        ["rainy","mild","high","FALSE","yes"],
-        ["rainy","cool","normal","FALSE","yes"],
-        ["rainy","cool","normal","TRUE","no"],
-        ["overcast","cool","normal","TRUE","yes"],
-        ["sunny","mild","high","FALSE","no"],
-        ["sunny","cool","normal","FALSE","yes"],
-        ["rainy","mild","normal","FALSE","yes"],
-        ["sunny","mild","normal","TRUE","yes"],
-        ["overcast","mild","high","TRUE","yes"],
-        ["overcast","hot","normal","FALSE","yes"],
-        ["rainy","mild","high","TRUE","no"]
-    ]
-
-
-    for node in nodes:
-        node.count_values(data_table, nodes[len(nodes)-1])
-    root = Node().select_best(nodes)
-    root.set_children()
-    for child in root.children:
-        print(root.children[child])
+    file_input = fileinput.input()
+    nodes = []
+    data_table = []
+    for line in file_input:
+        if(line[0] != '%' and line != '\n'):
+            if(line[0:10] == '@attribute' or line[0:10] == '@ATTRIBUTE'):
+                l = line[11:].replace('\n','').replace('\t',' ')
+                parse_node(re.sub(' +',' ', l), nodes)
+            elif(line[0:5] != '@data' and line[0:5] != '@DATA' and line[0:9] != '@relation' and line[0:9] != '@REALTION'):
+                data_table.append(line.replace('\n','').split(','))
+    entropy = calc_entropy(nodes, data_table)
+    id3(nodes, data_table, entropy, 0)
