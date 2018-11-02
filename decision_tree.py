@@ -3,10 +3,13 @@
 # https://www.saedsayad.com/decision_tree.htm
 
 # Import libraries
+
 import math
 import fileinput
 import re
 
+
+# Class definition of the node
 class Node():
     def __init__(self):
         self.name = ""
