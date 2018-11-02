@@ -94,7 +94,7 @@ if __name__ == "__main__":
     data_table = []
     for line in file_input:
         if(line[0] != '%' and line != '\n'):
-            if(line[0:10] == '@attribute' or line[0:10] == '@ATTRIBUTE'):
+            if(line.startswith('@attribute') or line.startswith('@ATTRIBUTE')):
                 l = line[11:].replace('\n','').replace('\t',' ')
                 parse_node(re.sub(' +',' ', l), nodes)
             elif(line[0:5] != '@data' and line[0:5] != '@DATA' and line[0:9] != '@relation' and line[0:9] != '@REALTION'):
