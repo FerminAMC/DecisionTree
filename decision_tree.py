@@ -1,7 +1,7 @@
 # A great source for understanding how to calculate the Entropy and
 # Information gained
 # https://www.saedsayad.com/decision_tree.htm
-
+# Great tool
 # Import libraries
 
 import math
